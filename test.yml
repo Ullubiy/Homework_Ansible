@@ -1,0 +1,47 @@
+---
+- name: provisioning build environment
+  hosts: build
+  become: yes
+
+  tasks:
+    - name: Ensure the packages is present
+      apt: name={{item}} state=present
+      with_items:
+        - maven
+        - tomcat9
+        - git
+      state: present
+
+    - name: Ensure demo project is downloaded
+      git:
+        repo: https://github.com/boxfuse/boxfuse-sample-java-war-hello.git
+        dest: /tmp
+        clone: yes
+
+    - name: Ensure the war is build
+      command: mvn --batch-mode --quiet install
+      args:
+        chdir: /boxfuse-sample-java-war-hello
+
+    - name: Ensure the war copy from build to master
+      synchronize:
+        mode: pull
+        src: /boxfuse-sample-java-war-hello/target/hello-1.0.war
+        dest: /tmp
+
+- name: provisioning prod environment
+  hosts: prod
+  become: yes
+
+  tasks:
+    - name: Ensure the packages is present
+      apt: name={{item}} state=present
+      with_items:
+        - java-jdk
+        - tomcat9
+        
+    - name: Ensure the war copy from build to prod
+      synchronize:
+        mode: push
+        src: /tmp/hello-1.0.war
+        dest: /var/lib/tomcat9/webapps/
